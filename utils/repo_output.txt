@@ -1,0 +1,704 @@
+Repository Structure:
+.devcontainer
+.devcontainer/devcontainer.json
+.gitignore
+LICENSE
+README.md
+client
+client/app.py
+client/guide.py
+requirements.txt
+server
+server/cover_letter_generator.py
+server/input_processing.py
+server/text_embedding_and_vector_storage.py
+
+Repository Contents:
+
+File: https://api.github.com/anmol52490/Gen-email/blob/main/README.md
+# AI-Generated Custom Cover Letter Application with RAG Framework and Streamlit
+This project focuses on building an intelligent system that automates the creation of custom cover letters for job applications. By analyzing a user's resume and a job description, the application leverages advanced AI techniques to generate tailored cover letters, streamlining the application process.
+
+## Main Objectives
+- **Analyze Resumes and Job Descriptions**: Extract and understand relevant details from both inputs.
+- **Generate Tailored Cover Letters**: Use state-of-the-art LLMs to produce personalized cover letters.
+- **Email Integration**: Simplify the job application process by sending the generated cover letter directly to the HR's email address.
+- **Deploy for Ease of Use**: Provide a user-friendly interface for real-time interaction via Streamlit.
+
+## Key Functionalities
+- **Resume and Job Description Analysis**: Process and understand user-uploaded files.
+- **Custom Cover Letter Generation**: Generate high-quality, role-specific cover letters using the RAG framework and Llama3-70b-8192 model.
+- **Email Integration**: Send cover letters directly to the provided HR email address using SMTP.
+- **Interactive Web Application**: Streamlit deployment for seamless interaction with users.
+- **Usage Guide**: A dedicated guide page to help users understand and navigate the application.
+
+## Overview
+The project is organized into two main folders:
+
+### 1. **Client**
+   - **app.py**: Hosts the main Streamlit web application for user interaction.
+   - **guide.py**: Provides a Streamlit page with instructions on how to use the application.
+
+### 2. **Server**
+   - **cover_letter_generator.py**: Combines information from the resume and job description to generate a customized cover letter.
+   - **input_processing.py**: Handles the parsing and preprocessing of resume and job description inputs.
+   - **text_embedding_and_vector_store.py**: Implements the RAG framework, including text embeddings and FAISS vector storage for document similarity and retrieval.
+
+### Requirements
+The `requirements.txt` file includes all necessary dependencies for both the client and server components, ensuring smooth setup and execution.
+
+## Features
+- Analyze resumes and job descriptions for key information.
+- Generate personalized cover letters based on the input data.
+- Send the generated cover letters via email directly to HR.
+- Host an intuitive web interface with usage instructions.
+
+## Technologies Used
+- **Embeddings**: HuggingFace Transformers and FAISS for similarity search.
+- **LLM**: Llama3-70b-8192 for high-quality text generation.
+- **RAG Framework**: Retrieval-Augmented Generation for context-aware content generation.
+- **Deployment**: Streamlit for web-based interaction.
+- **Text Processing**: RecursiveCharacterSplitter for handling lengthy documents.
+- **Email Service**: SMTP for sending emails.
+
+## Installation
+Follow these steps to set up the project on your local machine.
+
+### Prerequisites
+- **Python Version**: Ensure you have Python 3.8 or higher installed.
+
+### Setup
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/Med-Time/Gen-email.git
+   cd Gen-email
+   ```
+
+2. Install dependencies:
+   Use the provided `requirements.txt` file to install all necessary libraries:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. Run the application:
+   To launch the main application:
+   ```bash
+   streamlit run client/app.py
+   ```
+
+   To access the usage guide:
+   ```bash
+   streamlit run client/guide.py
+   ```
+
+## Deployment
+You can access the deployed version of the application here:  
+**[add ]**
+
+## Contributors
+- **Anmol**  
+- **Bhishan**  
+- **Sagar**
+
+## Acknowledgements
+- Thanks to HuggingFace for providing powerful models and embeddings.
+- Special thanks to Groq API, FAISS, and LangChain for their tools and libraries that made this project possible.
+
+--------------------------------------------------------------------------------
+
+File: https://api.github.com/anmol52490/Gen-email/blob/main/client/app.py
+import streamlit as st
+import base64
+import os
+import sys
+import smtplib
+
+
+server_path = os.path.join(os.path.dirname(__file__), '..', 'server')
+sys.path.append(server_path)
+
+
+from input_processing import DocumentProcessor
+from text_embedding_and_vector_storage import VectorStore
+from cover_letter_generator import GroqCoverLetterGenerator
+
+
+
+
+def switch_to_guide():
+    st.session_state.page = 'guide'
+
+# Initialize session state
+if 'page' not in st.session_state:
+    st.session_state.page = 'main'
+
+if st.session_state.page == 'main':
+    st.title("Generate Cover Letter with AI")
+    job_description = st.text_area("Job Description", key="jd", height=200)
+
+    mail = st.text_input("Mail to : ", key="mail",placeholder="Enter the mail to send the generated email")
+
+    resume = st.file_uploader("Upload Resume", type=["pdf"])
+
+    # Check if inputs are valid
+    if job_description == "":
+        st.error("Please enter a job description")
+    elif resume is None or resume.type != "application/pdf":
+        st.error("Please upload a PDF resume")
+    else:
+        resume_bytes = resume.read()
+        resume_base64 = base64.b64encode(resume_bytes).decode("utf-8")
+        resume_url = f"data:application/pdf;base64,{resume_base64}"
+        st.markdown(
+            f'<iframe src="{resume_url}" width="700" height="800" type="application/pdf"></iframe>',
+            unsafe_allow_html=True,
+        )
+
+        job_description_path = "data/job_description.txt"
+        with open(job_description_path, "w") as f:
+            f.write(job_description)
+
+        # Save the uploaded PDF to a file
+        resume_path = "data/resume.pdf"  
+        with open(resume_path, "wb") as f:
+            f.write(resume_bytes)
+
+    # Generate email content when button is clicked
+    if st.button("Generate E-mail"):
+        # Ensure the resume is saved for processing
+        if resume is not None:
+            processor = DocumentProcessor()
+            processor.process_documents(resume_path)
+
+            vector_store = VectorStore()
+            stores = vector_store.process_documents(
+                "data/resume.txt",
+                "data/job_description.txt"
+            )
+            with open("data/resume.txt", "r") as f:
+                resume_text = f.read()
+
+            generator = GroqCoverLetterGenerator(groq_api_key=os.getenv('GROQ_API_KEY'))
+            # Create or load vector stores
+            resume_store = generator.load_or_create_vector_store(
+                resume_text, 
+                "resume_store"
+            )
+            jd_store = generator.load_or_create_vector_store(
+                job_description, 
+                "jd_store"
+            )
+            cover_letter = generator.generate_cover_letter(resume_store=resume_store, jd_store=jd_store, hr_email=mail)
+
+            # Save generated email in session state
+            st.session_state.content = cover_letter
+
+    # Text area for displaying and modifying the email
+    def update_content():
+        st.session_state.content = st.session_state.temp_content
+
+
+    st.text_area(
+        "Generated E-mail",
+        st.session_state.get("content", ""),  # Show the content in session state or empty if none
+        height=400,
+        key="temp_content",
+        on_change=update_content,  # Update content on change
+    )
+
+    def login_dialog():
+        email = st.text_input("Email")
+        password = st.text_input("Password", type="password")
+
+        if st.button("Submit"):
+            st.session_state.email = email
+            st.session_state.password = password
+            st.session_state.logged_in = True
+            st.success("Logged in successfully!", icon="✅")
+            st.rerun()
+
+    def send_mail():
+        # Set up the SMTP server
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.starttls()
+
+        # Log in to the email account
+        server.login(st.session_state.email, st.session_state.password)
+
+        def extract_content():
+            body = st.session_state.content
+            return body
+
+        body = extract_content()
+        # Send the email
+        server.sendmail(st.session_state.email, mail, body)
+
+        # Close the server
+        server.quit()
+        st.write("Email sent successfully!")
+
+    # Initialize session state variables
+    if 'logged_in' not in st.session_state:
+        st.session_state.logged_in = False
+
+    # Show login dialog if not logged in
+    if not st.session_state.logged_in:
+        login_dialog()
+    else:
+        # Button to send the email
+        if st.button("Confirm E-mail"):
+            send_mail()
+            st.write("Your Final E-mail:")
+            st.write(st.session_state.content)
+    if st.sidebar.button("Guide"):
+        switch_to_guide()
+elif st.session_state.page == 'guide':
+    import guide
+    guide.show_guide()
+
+--------------------------------------------------------------------------------
+
+File: https://api.github.com/anmol52490/Gen-email/blob/main/client/guide.py
+import streamlit as st
+
+def show_guide():
+    if st.sidebar.button("Home"):
+        st.session_state.page = 'main'
+
+    st.title("Application User Guide")
+    st.write("""
+    Welcome to the guide for using our application! This page will walk you through the features and how to use them effectively.
+    """)
+
+    st.header("📄 What We Do")
+    st.write("""
+    We simplify the process of sending professional emails to HR representatives of companies by:
+    - Allowing you to upload your resume and input the job description.
+    - Helping you compose and send tailored emails quickly and efficiently.
+    - Ensuring a smooth, hassle-free communication channel with HR.
+    """)
+
+    # Section 2: How to Use the Application
+    st.header("🛠 How to Use")
+    st.write("""
+    1. **Upload Your Resume**: Click on the "Browse files" button to upload your resume (in PDF format).
+    2. **Input Job Description**: Enter the job description in the text area provided for analysis.
+    3. **Enter HR's Email**: Provide the HR's email address for sending your resume.
+    4. **Generate Your Email**: The app will generate an email with the job description and resume attached for you to send.
+    
+    But you need to enter the Google app password to access the generated mail, so get your app password beforehand.
+    """)
+
+    st.header("🔑 Create and Use App Password")
+    st.write("""
+    1. **Sign in to your Google Account**:
+    - Go to [Google Account](https://myaccount.google.com).
+    - Sign in with your Google credentials (email and password).
+
+    2. **Go to Security Settings**:a
+    - On the left-hand side, click on **Security**.
+
+    3. **Enable 2-Step Verification (if not already enabled)**:
+    - Scroll down to the "Signing in to Google" section.
+    - If **2-Step Verification** is not enabled, click on it and follow the steps to set it up.
+
+    4. **Generate App Password**:
+    - Under the "Signing in to Google" section, find **App passwords**.
+    - Click on **App passwords** (you may be prompted to enter your password again).
+
+    5. **Set the App**:
+    - To create a new app specific password, type a app name for it.
+
+    6. **Generate the Password**:
+    - Click on **Generate**.
+    - A 16-character app password will appear.
+
+    7. **Use the App Password**:
+    - Copy the generated app password.
+    - Paste this password into the main application page to retrieve the generated mail.
+
+    8. **Finish**:
+    - Once you've entered the app password, you should be able to access the app or service.
+
+    For further understanding, you can visit [Google's official guide on App passwords](https://support.google.com/accounts/answer/185833?hl=en).
+    """)
+
+    # Section 5: Contact
+    st.header("📧 Contact Us")
+    st.write("""
+    For any questions or support, feel free to reach out to us at:
+    - **General Inquiries**: anmolbhusal1804@gmail.com
+    - **Technical Support**: bhishan.cd22@bmsce.ac.in
+    - **Feedback & Suggestions**: sagar.cd22@bmsce.ac.in
+    """)
+
+    st.write("Thank you for choosing our application!")
+
+
+--------------------------------------------------------------------------------
+
+File: https://api.github.com/anmol52490/Gen-email/blob/main/requirements.txt
+faiss-cpu
+groq
+huggingface-hub
+Jinja2
+joblib
+langchain
+langchain-community
+langchain-core
+langchain-text-splitters
+langsmith
+networkx
+pdfplumber
+pydantic
+Pygments
+PyPDF2
+pypdfium2
+requests
+sentence-transformers
+spacy
+tokenizers
+torch
+transformers
+langchain_huggingface
+--------------------------------------------------------------------------------
+
+File: https://api.github.com/anmol52490/Gen-email/blob/main/server/cover_letter_generator.py
+import groq
+from typing import Optional, Dict
+from langchain_community.vectorstores import FAISS
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_core.documents import Document
+import os
+
+class GroqCoverLetterGenerator:
+    def __init__(self, groq_api_key: str, vector_store_path: str = "vector_indices"):
+        """
+        Initialize the Groq-based cover letter generator
+        
+        Args:
+            groq_api_key: API key for Groq
+            vector_store_path: Path where vector stores are saved
+        """
+        self.client = groq.Client(api_key=groq_api_key)
+        self.vector_store_path = vector_store_path
+        
+        # Initialize embeddings model
+        self.embeddings = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-mpnet-base-v2"
+        )
+        
+        # Initialize text splitter
+        self.text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=500,
+            chunk_overlap=50,
+            separators=["\n\n", "\n", " ", ""]
+        )
+    
+    def load_or_create_vector_store(self, 
+                                text: str, 
+                                store_name: str) -> FAISS:
+        """
+        Load existing vector store or create new one if it doesn't exist
+        """
+        store_path = os.path.join(self.vector_store_path, store_name)
+        # Try to load existing vector store
+        if os.path.exists(store_path):
+            try:
+                return FAISS.load_local(store_path, self.embeddings, allow_dangerous_deserialization=True)
+            except Exception as e:
+                print(f"Error loading vector store: {e}")
+                # If loading fails, we'll create a new one
+        
+        # Create new vector store
+        chunks = self.text_splitter.split_text(text)
+        documents = [Document(page_content=chunk) for chunk in chunks]
+        vector_store = FAISS.from_documents(documents, self.embeddings)
+        
+        # Save vector store
+        os.makedirs(self.vector_store_path, exist_ok=True)
+        vector_store.save_local(store_path)
+        
+        return vector_store
+    
+    def get_relevant_context(self, 
+                        vector_store: FAISS, 
+                        query: str,
+                        k: int = 3) -> str:
+        """
+        Get relevant context from vector store using similarity search
+        """
+        documents = vector_store.similarity_search(query, k=k)
+        return "\n".join([doc.page_content for doc in documents])
+    
+    def extract_key_information(self, 
+                            resume_store: FAISS, 
+                            jd_store: FAISS) -> Dict[str, str]:
+        """
+        Extract relevant information from both resume and job description
+        using vector stores
+        """
+        queries = {
+            "technical_skills": "What are the candidate's technical skills, programming languages, and tools?",
+            "soft_skills": "What are the candidate's soft skills, leadership abilities, and interpersonal skills?",
+            "experience": "What are the candidate's most relevant work experiences, projects, and achievements?",
+            "education": "What is the candidate's educational background, degrees, and certifications?",
+            "job_requirements": "What are the key technical requirements and qualifications for this position?",
+            "job_responsibilities": "What are the main responsibilities and duties of this role?"
+        }
+        
+        info = {}
+        
+        # Extract from resume
+        for key in ['technical_skills', 'soft_skills', 'experience', 'education']:
+            info[key] = self.get_relevant_context(resume_store, queries[key])
+        
+        # Extract from job description
+        for key in ['job_requirements', 'job_responsibilities']:
+            info[key] = self.get_relevant_context(jd_store, queries[key])
+        
+        return info
+    
+    def generate_cover_letter(self,
+                            resume_store: FAISS,
+                            jd_store: FAISS,
+                            hr_email: str) -> Optional[str]:
+        """
+        Generate cover letter using existing vector stores
+        """
+        try:
+            # Extract relevant information using vector stores
+            info = self.extract_key_information(resume_store, jd_store)
+            
+            # Create detailed prompt with extracted information
+            messages = [
+                {
+                    "role": "system",
+                    "content": """You are a professional cover letter writer. 
+                    Create compelling, personalized cover letters that precisely match 
+                    candidate qualifications with job requirements.
+                    Directly start writing letter from subject, no need to provide any additional labels like "Here is a professional cover letter based on the matched information:" or "Here is a professional cover letter:" and other.
+                    """
+                },
+                {
+                    "role": "user",
+                    "content": f"""
+                    Create a professional cover letter based on the following matched information:
+                    
+                    Technical Skills:
+                    {info['technical_skills']}
+                    
+                    Soft Skills:
+                    {info['soft_skills']}
+                    
+                    Relevant Experience:
+                    {info['experience']}
+                    
+                    Education:
+                    {info['education']}
+                    
+                    Job Requirements:
+                    {info['job_requirements']}
+                    
+                    Job Responsibilities:
+                    {info['job_responsibilities']}
+                    
+                    HR Email: {hr_email}
+                    
+                    Requirements:
+                    1. Start with a compelling introduction showing understanding of the role
+                    2. Match specific skills and experiences to job requirements
+                    3. Use concrete examples from the experience section
+                    4. Maintain professional tone while showing enthusiasm
+                    5. Format as proper email with subject line
+                    6. Include strong call to action
+                    7. Keep length between 250-300 words
+                    8. End with professional closing
+                    9. Use proper grammar and punctuation
+                    10. Avoid cliches and generic statements
+                    11. Avoid repeating information from resume
+                    12. Avoid negative language or criticism
+                    13. Make sure the email is humanised the email generated should be humanised
+                    """
+                }
+            ]
+            
+            # Generate completion using Groq
+            completion = self.client.chat.completions.create(
+                messages=messages,
+                model="llama3-70b-8192",
+                temperature=0.7,
+                max_tokens=1000,
+                top_p=1,
+                stream=False
+            )
+            
+            return completion.choices[0].message.content
+            
+        except Exception as e:
+            print(f"Error generating cover letter: {str(e)}")
+            return None
+
+    def calculate_match_scores(self,
+                            resume_store: FAISS,
+                            jd_store: FAISS) -> Dict[str, float]:
+        """
+        Calculate how well the resume matches job requirements
+        """
+        # Get key requirements
+        requirements = self.get_relevant_context(
+            jd_store,
+            "What are the specific requirements and qualifications?",
+            k=5
+        )
+        
+        # Split into individual requirements
+        req_chunks = self.text_splitter.split_text(requirements)
+        
+        scores = {}
+        for req in req_chunks:
+            # Find most relevant resume content
+            matches = resume_store.similarity_search_with_score(req, k=1)
+            if matches:
+                # Convert distance to similarity score (0-100%)
+                score = (1.0 - matches[0][1]) * 100
+                scores[req.strip()] = round(score, 2)
+        
+        return scores
+
+--------------------------------------------------------------------------------
+
+File: https://api.github.com/anmol52490/Gen-email/blob/main/server/input_processing.py
+import os
+import pdfplumber
+
+class DocumentProcessor:
+    def __init__(self):
+        # Create the 'data' directory if it doesn't exist
+        if not os.path.exists('data'):
+            os.makedirs('data')
+        
+    def parse_pdf_with_pdfplumber(self, pdf_path: str) -> str:
+        """Extract text from PDF using pdfplumber"""
+        text = ""
+        with pdfplumber.open(pdf_path) as pdf:
+            for page in pdf.pages:
+                text += page.extract_text() + "\n"
+        return text
+    
+    def save_text_to_file(self, text: str, file_name: str) -> None:
+        """Save extracted text to a file in the 'data' directory"""
+        try:
+            with open(f"data/{file_name}.txt", 'w', encoding='utf-8') as file:
+                file.write(text)
+        except Exception as e:
+            print(f"Error saving the file: {e}")
+
+    def process_documents(self, resume_path: str) -> None:
+        """Process the resume and save the extracted text to a file"""
+        resume_text = ""
+        
+        if resume_path.endswith('.pdf'):
+            resume_text = self.parse_pdf_with_pdfplumber(resume_path)
+        else:
+            raise ("Unsupported file type. Please use PDF files.")
+        
+        # Extract the base name of the file without the extension
+        file_name = os.path.splitext(os.path.basename(resume_path))[0]
+        
+        # Save the extracted text to a file in 'data' directory
+        self.save_text_to_file(resume_text, file_name)
+
+
+--------------------------------------------------------------------------------
+
+File: https://api.github.com/anmol52490/Gen-email/blob/main/server/text_embedding_and_vector_storage.py
+from langchain.embeddings import HuggingFaceEmbeddings
+from langchain.vectorstores import FAISS
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+import os
+from typing import List, Dict, Optional
+
+class VectorStore:
+    def __init__(self, index_dir: str = "vector_indices"):
+        """Initialize vector store with storage directory"""
+        self.index_dir = index_dir
+        os.makedirs(index_dir, exist_ok=True)
+        
+        # Initialize embeddings model
+        self.embeddings = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-mpnet-base-v2"
+        )
+        
+        # Initialize text splitter
+        self.text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=500,
+            chunk_overlap=50,
+            separators=["\n\n", "\n", " ", ""]
+        )
+    
+    def create_vector_store(self, 
+                        texts: List[str], 
+                        store_name: str) -> Optional[FAISS]:
+        """Create vector store from texts"""
+        try:
+            # Split texts into chunks
+            chunks = self.text_splitter.split_text("\n".join(texts))
+            
+            # Create vector store
+            vector_store = FAISS.from_texts(
+                texts=chunks,
+                embedding=self.embeddings
+            )
+            
+            # Save vector store
+            vector_store.save_local(
+                os.path.join(self.index_dir, store_name)
+            )
+            
+            return vector_store
+            
+        except Exception as e:
+            print(f"Error creating vector store: {str(e)}")
+            return None
+    
+    def load_vector_store(self, store_name: str) -> Optional[FAISS]:
+        """Load existing vector store"""
+        try:
+            return FAISS.load_local(
+                os.path.join(self.index_dir, store_name),
+                self.embeddings
+            )
+        except Exception as e:
+            print(f"Error loading vector store: {str(e)}")
+            return None
+    
+    def process_documents(self, 
+                        resume_path: str, 
+                        jd_path: str) -> Dict[str, FAISS]:
+        """Process resume and job description into vector stores"""
+        # Read files
+        try:
+            with open(resume_path, 'r', encoding='utf-8') as f:
+                resume_text = f.read()
+            with open(jd_path, 'r', encoding='utf-8') as f:
+                jd_text = f.read()
+        except Exception as e:
+            print(f"Error reading files: {str(e)}")
+            return {}
+        
+        # Create vector stores
+        stores = {}
+        stores['resume'] = self.create_vector_store(
+            [resume_text], 
+            'resume_store'
+        )
+        stores['jd'] = self.create_vector_store(
+            [jd_text], 
+            'jd_store'
+        )
+        
+        return stores
+
+--------------------------------------------------------------------------------
