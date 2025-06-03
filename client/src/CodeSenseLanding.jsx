@@ -4,6 +4,7 @@ import { TypeAnimation } from 'react-type-animation';
 import { Globe, Lock, Sun, Moon, Bot } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import './custom.css';
+import api from './api'; // Import the API instance
 
 export default function CodeSenseLanding() {
   const [mode, setMode] = useState('Public');
@@ -12,6 +13,7 @@ export default function CodeSenseLanding() {
   const [dark, setDark] = useState(true);
   const [errors, setErrors] = useState({});
   const [showForm, setShowForm] = useState(false);
+  const [loading, setLoading] = useState(false); // Add loading state
   const navigate = useNavigate();
 
   // Validate PR URL and token
@@ -28,19 +30,36 @@ export default function CodeSenseLanding() {
     return Object.keys(errs).length === 0;
   };
 
-  // Handle form submit: navigate to review page
-  const handleSubmit = (e) => {
+  // Handle form submit: make API call and navigate to review page
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
-
-    // Navigate to review page with the form data
-    navigate('/review', {
-      state: {
-        mode,
-        prUrl,
-        token,
-      }
-    });
+    
+    setLoading(true); // Start loading
+    
+    try {
+      // Make POST request to your backend
+      const response = await api.post('/review-pr', {
+        pr_url: prUrl  // Change from prUrl to pr_url to match backend
+      });
+      
+      // Navigate to review page with the response data and form data
+      navigate('/review', {
+        state: {
+          mode,
+          prUrl,
+          token,
+          reviewData: response.data // Pass the response data
+        }
+      });
+    } catch (error) {
+      console.error('Error reviewing PR:', error);
+      setErrors({ 
+        submit: error.response?.data?.message || 'Failed to review PR. Please try again.'
+      });
+    } finally {
+      setLoading(false); // End loading regardless of outcome
+    }
   };
 
   // Toggle dark mode
@@ -437,7 +456,7 @@ export default function CodeSenseLanding() {
                     {errors.token && <div style={{ color: '#ef4444', fontSize: '0.875rem', marginTop: '0.25rem' }}>{errors.token}</div>}
                   </div>
                 )}
-                {/* Submit button */}
+                {/* Submit button - Update to show loading state */}
                 <motion.button
                   type="button"
                   style={{
@@ -449,17 +468,30 @@ export default function CodeSenseLanding() {
                     fontWeight: 600,
                     fontSize: '1.125rem',
                     boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-                    cursor: 'pointer',
+                    cursor: loading ? 'not-allowed' : 'pointer', // Change cursor when loading
                     border: 'none',
                     outline: 'none',
-                    marginTop: '0.5rem'
+                    marginTop: '0.5rem',
+                    opacity: loading ? 0.7 : 1 // Dim the button when loading
                   }}
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={handleSubmit}
+                  whileHover={{ scale: loading ? 1 : 1.03 }} // Disable hover effect when loading
+                  whileTap={{ scale: loading ? 1 : 0.98 }} // Disable tap effect when loading
+                  onClick={loading ? null : handleSubmit} // Prevent multiple submissions
                 >
-                  Review Pull Request
+                  {loading ? 'Processing...' : 'Review Pull Request'}
                 </motion.button>
+                
+                {/* Error message for submission errors */}
+                {errors.submit && (
+                  <div style={{ 
+                    color: '#ef4444', 
+                    fontSize: '0.875rem', 
+                    marginTop: '0.5rem',
+                    textAlign: 'center' 
+                  }}>
+                    {errors.submit}
+                  </div>
+                )}
               </motion.form>
             )}
           </AnimatePresence>
@@ -482,4 +514,4 @@ export default function CodeSenseLanding() {
       </div>
     </div>
   );
-} 
+}
