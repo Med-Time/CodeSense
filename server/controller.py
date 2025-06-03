@@ -24,18 +24,34 @@ from crew_agents import (
     ReportCompilerAgent, ReportCompilerAgent_task
 )
 
+# Enhance the clean_agent_output function
+
 def clean_agent_output(output: str) -> str:
     """
     Clean agent output by removing markdown code block formatting.
     """
-    # Remove markdown code block markers
-    if output.startswith("```") and output.endswith("```"):
-        # Extract language identifier if present
-        first_line_end = output.find("\n")
-        if first_line_end > 0:
-            language = output[3:first_line_end].strip()
-            # Remove first line (```json) and last line (```)
-            output = output[first_line_end + 1:output.rindex("```")].strip()
+    if not output:
+        return "{}"  # Return empty JSON object if output is None or empty
+        
+    try:
+        # Remove markdown code block markers
+        if output.startswith("```") and output.endswith("```"):
+            # Extract language identifier if present
+            first_line_end = output.find("\n")
+            if first_line_end > 0:
+                language = output[3:first_line_end].strip()
+                # Remove first line (```json) and last line (```)
+                output = output[first_line_end + 1:output.rindex("```")].strip()
+    except (ValueError, AttributeError) as e:
+        print(f"Warning: Error cleaning agent output: {e}")
+        # Handle partial markdown blocks
+        if isinstance(output, str):
+            if output.startswith("```"):
+                parts = output.split("\n", 1)
+                if len(parts) > 1:
+                    output = parts[1]
+            if output.endswith("```"):
+                output = output[:-3]
     
     return output
 
