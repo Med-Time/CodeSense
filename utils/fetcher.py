@@ -5,12 +5,6 @@ import tempfile
 import subprocess
 
 
-def clone_repo_temp(git_url):
-    temp_dir = tempfile.mkdtemp()
-    subprocess.run(["git", "clone", git_url, temp_dir], check=True)
-    return temp_dir
-
-
 GITHUB_API = "https://api.github.com"
 
 def parse_github_pr_url(pr_url):
@@ -93,9 +87,3 @@ def fetch_pr_conversation(repo_owner="", repo_name="", pr_number=1, token="", pr
         })
 
     return conversations
-
-
-# def load_repo_code(git_url):
-#     repo_dir = clone_repo_temp(git_url)
-#     all_code = read_all_files(repo_dir)
-#     return structure_for_agents(all_code)

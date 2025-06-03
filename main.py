@@ -1,4 +1,4 @@
-from core.fetcher import fetch_pr_diff
+from utils.fetcher import fetch_pr_diff
 import os
 from utils.chunker import chunk_diff
 import json

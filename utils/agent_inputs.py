@@ -3,8 +3,8 @@ from dotenv import load_dotenv
 from github import Github, UnknownObjectException, GithubException
 from langchain_community.document_loaders import GithubFileLoader
 from pprint import pprint
-from core.fetcher import fetch_pr_diff
-from core.fetcher import fetch_pr_conversation
+from utils.fetcher import fetch_pr_diff
+from utils.fetcher import fetch_pr_conversation
 import json
 
 # --- GitHub Client ---
@@ -117,20 +117,16 @@ def main():
     repo_name = "cpython"
     pr_number = 135057
     branch = "main"
-
-    # print("\n--- Bug Risk Agent Inputs ---")
-    # try:
-    #     bug_inputs=get_bug_risk_agent_inputs(repo_full_name, pr_number)
-    #     print(bug_inputs) 
-    # except Exception as e:
-    #     print(f"Error: {e}")
-
-    # print("\n--- Codebase Review Agent Inputs ---")
-    # try:
-    #      codebase_inputs = get_codebase_review_agent_inputs(repo_full_name, branch)
-    #      print(codebase_inputs)
-    # except Exception as e:
-    #     print(f"Error: {e}")
+    try:
+        bug_inputs=get_bug_risk_agent_inputs(repo_full_name, pr_number)
+        print(bug_inputs) 
+    except Exception as e:
+        print(f"Error: {e}")
+    try:
+         codebase_inputs = get_codebase_review_agent_inputs(repo_full_name, branch)
+         print(codebase_inputs)
+    except Exception as e:
+        print(f"Error: {e}")
 
     print("\n--- Conversatons---")
     try:
