@@ -3,17 +3,19 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useLocation, useNavigate } from 'react-router-dom';
 import './custom.css';
-import { motion } from 'framer-motion'; // Import motion for animations
-import { FaArrowLeft } from 'react-icons/fa'; // Import the arrow icon
+import { motion } from 'framer-motion';
+import { FaArrowLeft } from 'react-icons/fa';
 
 export default function ReviewResult() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { prUrl } = location.state || {};
-
-  // Static markdown content
-  const staticMarkdown = `# 📋 Pull Request Review\n\n**Title:** Pull Request Review  \n**Repository:** python/cpython  \n**Author:** Aadarsha  \n**PR Number:** #135037  \n\n---\n\n## 🧮 Review Summary\n\n| Category        | Count | Severity |\n|----------------|-------|----------|\n| Code Quality    |   4   | Medium   |\n| Security        |   2   | High     |\n| Documentation   |   1   | Low      |\n\n---\n\n## 🧾 Code Changes\n\n\`\`\`js\nfunction login(user, pass) {\n  // TODO: add input validation\n  authenticate(user, pass);\n  // Removed legacy logging\n  return true;\n}\n\`\`\`\n\n## Agent Feedback\n\n### Code Quality\n- Consider using async/await for authentication. *(Medium)*\n- Remove commented-out code before merging. *(Low)*\n\n### Security\n- Missing input validation for user credentials. *(High)*\n- Consider rate limiting login attempts. *(Medium)*\n\n### Documentation\n- Add JSDoc comments for the login function. *(Low)*\n`;
-
+  
+  // Extract data passed from CodeSenseLanding
+  const { prUrl, reviewData } = location.state || {};
+  
+  // Use the review data from API response, or fallback to empty string
+  const markdownContent = reviewData?.report || '';
+  
   React.useEffect(() => {
     if (!prUrl) {
       navigate('/');
@@ -27,7 +29,7 @@ export default function ReviewResult() {
   };
 
   return (
-    <div className="gradient-bg full-screen-container" style={{ position: 'relative', overflowY: 'auto', padding: '2rem 1rem' }}> {/* Apply gradient and full screen, add padding and overflow */}
+    <div className="gradient-bg full-screen-container" style={{ position: 'relative', overflowY: 'auto', padding: '2rem 1rem' }}>
       {/* Back arrow button */}
       <motion.div
         style={{
@@ -36,8 +38,8 @@ export default function ReviewResult() {
           left: '2rem',
           zIndex: 20,
           cursor: 'pointer',
-          color: '#e0e7ff', /* Light color for visibility */
-          fontSize: '1.5rem', /* Increased size */
+          color: '#e0e7ff',
+          fontSize: '1.5rem',
           padding: '0.5rem',
         }}
         whileHover={{ scale: 1.1 }}
@@ -48,19 +50,19 @@ export default function ReviewResult() {
       </motion.div>
 
       <motion.div
-        className="glass-card" /* Wrap markdown in glass card */
+        className="glass-card"
         style={{
           width: '100%',
-          maxWidth: '1000px', /* Match max width in CSS */
-          // margin: '2rem auto', /* Center the card */
+          maxWidth: '1000px',
+          margin: '2rem auto',
         }}
         variants={containerVariants}
         initial="hidden"
         animate="visible"
       >
-        <div className="markdown-preview" style={{ background: 'none', boxShadow: 'none', padding: '0' }}> {/* Remove conflicting styles */}
+        <div className="markdown-preview" style={{ background: 'none', boxShadow: 'none', padding: '0' }}>
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {staticMarkdown}
+            {markdownContent}
           </ReactMarkdown>
         </div>
       </motion.div>

@@ -40,7 +40,7 @@ export default function CodeSenseLanding() {
     try {
       // Make POST request to your backend
       const response = await api.post('/review-pr', {
-        pr_url: prUrl  // Change from prUrl to pr_url to match backend
+        pr_url: prUrl
       });
       
       // Navigate to review page with the response data and form data
@@ -58,7 +58,7 @@ export default function CodeSenseLanding() {
         submit: error.response?.data?.message || 'Failed to review PR. Please try again.'
       });
     } finally {
-      setLoading(false); // End loading regardless of outcome
+      setLoading(false);
     }
   };
 
