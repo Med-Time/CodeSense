@@ -4,6 +4,7 @@ from utils.chunker import chunk_diff
 import tempfile
 import subprocess
 
+
 def clone_repo_temp(git_url):
     temp_dir = tempfile.mkdtemp()
     subprocess.run(["git", "clone", git_url, temp_dir], check=True)
@@ -56,7 +57,45 @@ def fetch_pr_diff(repo_owner="", repo_name="", pr_number=1, token="", pr_url=Non
 
     return parsed_changes
 
-def load_repo_code(git_url):
-    repo_dir = clone_repo_temp(git_url)
-    all_code = read_all_files(repo_dir)
-    return structure_for_agents(all_code)
+def fetch_pr_conversation(repo_owner="", repo_name="", pr_number=1, token="", pr_url=None):
+    if pr_url:
+        repo_owner, repo_name, pr_number = parse_github_pr_url(pr_url)
+
+    headers = {}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    url = f"{GITHUB_API}/repos/{repo_owner}/{repo_name}/pulls/{pr_number}"  
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
+    pr_data = response.json()
+
+    conversations = []
+
+    # Append PR-level metadata
+    conversations.append({
+        "user": pr_data["user"]["login"],
+        "created_at": pr_data.get("created_at", "N/A"),
+        "body": pr_data.get("body", "")
+    })
+
+    # Fetch issue comments
+    url = f"{GITHUB_API}/repos/{repo_owner}/{repo_name}/issues/{pr_number}/comments"  
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
+    comments = response.json()
+
+    # Append each comment
+    for comment in comments:
+        conversations.append({
+            "user": comment["user"]["login"],
+            "created_at": comment.get("created_at", "N/A"),
+            "body": comment.get("body", "")
+        })
+
+    return conversations
+
+
+# def load_repo_code(git_url):
+#     repo_dir = clone_repo_temp(git_url)
+#     all_code = read_all_files(repo_dir)
+#     return structure_for_agents(all_code)
