@@ -86,3 +86,6 @@ class PullRequestReviewReport(BaseModel):
     detailed_findings: Dict[str, Any] = Field(description="Includes the full Pydantic outputs from all sub-agents for completeness.")
     committer_feedback: str = Field(description="Human-like, empathetic, and constructive feedback for the committer.")
     actionable_next_steps_for_committer: List[str] = Field(description="A bulleted list of concrete, prioritized actions for the committer.")
+
+class PullReport(BaseModel):
+    report: str =Field(..., description="The comprehensive Pull Request Review Report.")

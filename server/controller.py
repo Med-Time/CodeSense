@@ -1,28 +1,27 @@
-import asyncio
+from typing import Dict, Any, List, Optional
 import json
-from crewai import Crew, Process
-from pydantic import ValidationError, BaseModel
-from typing import Dict, Any
+import asyncio
+import concurrent.futures
+from pydantic import ValidationError
 
-# Import agents and tasks from crew_agents.py
-from crew_agents import (
-    RepoContextAgent, BugDetectionAgent, CodeQualityAgent,
-    SecurityAgent, AlignmentAgent, ReportCompilerAgent,
-    RepoContextAgent_task, BugDetectionAgent_task, CodeQualityAgent_task,
-    SecurityAgent_task, AlignmentAgent_task, ReportCompilerAgent_task
-)
-
-# Import utility for input preparation
-from utils import prepare_agent_inputs_from_pr_url
-
-# Import Pydantic models for agent outputs
+from crewai import Crew
 from models import (
-    RepoContextAgentOutput,
-    BugDetectionAgentOutput,
-    CodeQualityAgentOutput,
-    SecurityAgentOutput,
+    RepoContextAgentOutput, 
+    BugDetectionAgentOutput, 
+    CodeQualityAgentOutput, 
+    SecurityAgentOutput, 
     AlignmentAgentOutput,
-    PullRequestReviewReport
+    PullRequestReviewReport,
+    PullReport  # Add this import
+)
+from utils import prepare_agent_inputs_from_pr_url
+from crew_agents import (
+    RepoContextAgent, RepoContextAgent_task,
+    BugDetectionAgent, BugDetectionAgent_task,
+    CodeQualityAgent, CodeQualityAgent_task,
+    SecurityAgent, SecurityAgent_task,
+    AlignmentAgent, AlignmentAgent_task,
+    ReportCompilerAgent, ReportCompilerAgent_task
 )
 
 def clean_agent_output(output: str) -> str:
@@ -213,8 +212,11 @@ async def run_pr_review_crew(pr_url: str) -> Dict[str, Any]:
         print(final_report_raw.raw)
         print("==== END RAW FINAL REPORT ====\n")
 
+        # Update the final report parsing section
+
+        # After running crew_6.kickoff():
         try:
-            # Clean the final report output just like we did with other agents
+            # Clean the final report output
             cleaned_final_report = clean_agent_output(final_report_raw.raw)
             
             # Debug the cleaned output
@@ -222,31 +224,42 @@ async def run_pr_review_crew(pr_url: str) -> Dict[str, Any]:
             print(cleaned_final_report)
             print("==== END CLEANED FINAL REPORT ====\n")
             
-            # Parse the cleaned output
-            final_report = PullRequestReviewReport.parse_raw(cleaned_final_report)
+            # Parse as PullReport
+            pull_report = PullReport.parse_raw(cleaned_final_report)
             
-            # Return the compiled report
-            return final_report.model_dump()
+            # Return just the content as the report
+            return {"report": pull_report.report}
         except (ValidationError, json.JSONDecodeError) as e:
             print(f"Error parsing final report: {e}")
-            # Create a fallback report
-            fallback_report = PullRequestReviewReport(
-                overall_verdict="Unable to generate complete report due to parsing error",
-                review_summary="An error occurred during the final report generation. Please check the logs for details.",
-                key_findings=[
-                    "Error in report compilation process",
-                    f"Error details: {str(e)}"
-                ],
-                code_quality_summary="See partial results in console output",
-                security_review_summary="See partial results in console output", 
-                bug_risk_summary="See partial results in console output",
-                alignment_assessment="See partial results in console output",
-                suggested_changes=[
-                    "Please try rerunning the review or check individual agent outputs"
-                ]
-            )
-            
-            return fallback_report.model_dump()
+            # Create a fallback markdown report
+            fallback_markdown = """# Pull Request Review
+
+## Overall Verdict
+**Needs More Review**
+
+## Executive Summary
+An error occurred during the report generation. The system was unable to fully analyze the pull request.
+
+## Bug Risk Assessment
+Unable to generate bug risk summary due to parsing error.
+
+## Code Quality Assessment
+Unable to generate code quality assessment due to parsing error.
+
+## Security Assessment
+Unable to generate security assessment due to parsing error.
+
+## Alignment Assessment
+Unable to generate alignment assessment due to parsing error.
+
+## Feedback for Committer
+We apologize, but an error occurred during report generation. Please try again or contact support if the issue persists.
+
+## Actionable Next Steps
+- Please try rerunning the review or check individual agent outputs
+"""
+    
+            return {"report": fallback_markdown}
     except Exception as e:
         print(f"❌ An error occurred during PR review: {e}")
         raise

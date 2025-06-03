@@ -11,7 +11,8 @@ from models import (
     CodeQualityAgentOutput, CodeQualitySuggestion,
     SecurityAgentOutput, SecurityFinding,
     AlignmentAgentOutput,
-    PullRequestReviewReport
+    PullRequestReviewReport,
+    PullReport
 )
 
 load_dotenv()
@@ -235,50 +236,83 @@ AlignmentAgent_task = Task(
 )
 
 # ReportCompilerAgent_task (No change in inputs, as it collects results from other agents)
-ReportCompilerAgent_task = Task(
-    description=(
-        "Collect and synthesize the results from the `{repo_context_result}`, `{bug_detection_result}`, "
-        "`{code_quality_result}`, `{security_result}`, and `{alignment_result}`. "
-        "Also, use the `{pr_conversation_initial_message}` to ensure the final feedback is contextually relevant and addresses the committer's stated intent.\n\n"
-        "Your primary goal is to generate a `PullRequestReviewReport` that includes:\n"
-        "1. **`overall_verdict`**: Your final recommendation (Approved, Changes Requested, Needs More Review).\n"
-        "2. **`executive_summary`**: A high-level summary of the PR's overall state, suitable for project managers or leads.\n"
-        "3. **Summaries for each area**: `bug_risk_summary`, `code_quality_summary`, `security_summary`, `alignment_summary`.\n"
-        "4. **`detailed_findings`**: Include the full Pydantic outputs from all sub-agents for completeness.\n"
-        "5. **`committer_feedback`**: This is CRITICAL. Craft a *human-like, empathetic, and constructive comment* that directly addresses the committer. "
-        "Start with positive feedback where appropriate. Then, clearly but kindly, explain any identified issues, "
-        "referencing specific findings from the other agents. "
-        "This comment should sound like a personal review from a helpful mentor. "
-        "Acknowledge their stated goal from the `{pr_conversation_initial_message}`.\n"
-        "6. **`actionable_next_steps_for_committer`**: A bulleted list of concrete, prioritized actions the committer should take to address identified issues or improve the PR. This should be derived directly from the findings and suggestions of the other agents.\n\n"
-        "Ensure the final output is a Markdown report, suitable for direct pasting into a pull request comment. "
-        "The `committer_feedback` should be the most prominent and carefully crafted part of your response, emphasizing actionable improvements.\n"
-        "Your output must strictly adhere to the `PullRequestReviewReport` Pydantic model. **Do not include any additional prose outside the Pydantic model.**"
-    ),
-    expected_output=PullRequestReviewReport.schema_json(),
-    agent=ReportCompilerAgent,
-    output_pydantic=PullRequestReviewReport,
-)
 # ReportCompilerAgent_task = Task(
 #     description=(
 #         "Collect and synthesize the results from the `{repo_context_result}`, `{bug_detection_result}`, "
 #         "`{code_quality_result}`, `{security_result}`, and `{alignment_result}`. "
 #         "Also, use the `{pr_conversation_initial_message}` to ensure the final feedback is contextually relevant and addresses the committer's stated intent.\n\n"
-#         "Your primary goal is to generate a comprehensive Pull Request Review Report in **strict Markdown format** that includes:\n"
-#         "1. **Overall Verdict**: Your final recommendation (Approved, Changes Requested, Needs More Review).\n"
-#         "2. **Executive Summary**: A high-level summary of the PR's overall state, suitable for project managers or leads.\n"
-#         "3. **Summaries for each area**: Bug risk, code quality, security, and alignment assessments.\n"
-#         "4. **Detailed Findings**: Include key findings from all sub-agents organized by category.\n"
-#         "5. **Committer Feedback**: This is CRITICAL. Craft a *human-like, empathetic, and constructive comment* that directly addresses the committer. "
+#         "Your primary goal is to generate a `PullRequestReviewReport` that includes:\n"
+#         "1. **`overall_verdict`**: Your final recommendation (Approved, Changes Requested, Needs More Review).\n"
+#         "2. **`executive_summary`**: A high-level summary of the PR's overall state, suitable for project managers or leads.\n"
+#         "3. **Summaries for each area**: `bug_risk_summary`, `code_quality_summary`, `security_summary`, `alignment_summary`.\n"
+#         "4. **`detailed_findings`**: Include the full Pydantic outputs from all sub-agents for completeness.\n"
+#         "5. **`committer_feedback`**: This is CRITICAL. Craft a *human-like, empathetic, and constructive comment* that directly addresses the committer. "
 #         "Start with positive feedback where appropriate. Then, clearly but kindly, explain any identified issues, "
 #         "referencing specific findings from the other agents. "
 #         "This comment should sound like a personal review from a helpful mentor. "
 #         "Acknowledge their stated goal from the `{pr_conversation_initial_message}`.\n"
-#         "6. **Actionable Next Steps**: A bulleted list of concrete, prioritized actions the committer should take to address identified issues or improve the PR.\n\n"
-#         "**IMPORTANT**: Your output must be in pure Markdown format, ready for direct posting as a GitHub PR comment. "
-#         "Do not use Pydantic model structure or JSON format. Use proper Markdown headers, lists, code blocks, and formatting."
+#         "6. **`actionable_next_steps_for_committer`**: A bulleted list of concrete, prioritized actions the committer should take to address identified issues or improve the PR. This should be derived directly from the findings and suggestions of the other agents.\n\n"
+#         "Ensure the final output is a Markdown report, suitable for direct pasting into a pull request comment. "
+#         "The `committer_feedback` should be the most prominent and carefully crafted part of your response, emphasizing actionable improvements.\n"
+#         "Your output must strictly adhere to the `PullRequestReviewReport` Pydantic model. **Do not include any additional prose outside the Pydantic model.**"
 #     ),
-#     expected_output="A comprehensive pull request review report in Markdown format, suitable for direct posting as a GitHub comment.",
+#     expected_output=PullRequestReviewReport.schema_json(),
 #     agent=ReportCompilerAgent,
-#     # output_file="output/report_compiler_agent_output.md",
+#     output_pydantic=PullRequestReviewReport,
 # )
+ReportCompilerAgent_task = Task(
+    description=(
+        "Collect and synthesize the results from the `{repo_context_result}`, `{bug_detection_result}`, "
+        "`{code_quality_result}`, `{security_result}`, and `{alignment_result}`. "
+        "Also, use the `{pr_conversation_initial_message}` to ensure the final feedback is contextually relevant and addresses the committer's stated intent.\n\n"
+        
+        "Your task is to generate a **comprehensive pull request review report in Markdown format**. "
+        "Your markdown report should include the following sections:\n\n"
+        
+        "# Pull Request Review\n\n"
+        
+        "## Overall Verdict\n"
+        "- Should be one of: 'Approved', 'Changes Requested', or 'Needs More Review'\n"
+        "- Include a brief explanation of the verdict\n\n"
+        
+        "## Executive Summary\n"
+        "- A high-level summary of the PR's overall state\n"
+        "- Mention key strengths and weaknesses\n\n"
+        
+        "## Code Quality Assessment\n"
+        "- Summarize the code quality findings\n"
+        "- Include the most important suggestions\n"
+        "- List any positive aspects of the code\n\n"
+        
+        "## Bug Risk Assessment\n"
+        "- Highlight potential bugs and their severity\n"
+        "- Include code examples where appropriate\n\n"
+        
+        "## Security Assessment\n"
+        "- Summarize security vulnerabilities if any\n"
+        "- Provide mitigation recommendations\n\n"
+        
+        "## Alignment Assessment\n"
+        "- How well the PR aligns with project goals\n"
+        "- Mention any risks to project architecture\n\n"
+        
+        "## Feedback for Committer\n"
+        "- CRITICAL: Craft a human-like, empathetic, and constructive comment\n"
+        "- Start with positive feedback where appropriate\n"
+        "- Clearly but kindly explain any identified issues\n"
+        "- Reference the committer's stated goal from the PR description\n\n"
+        
+        "## Actionable Next Steps\n"
+        "- Provide a bulleted list of prioritized actions\n"
+        "- Be specific and concrete\n"
+        "- Focus on the most important improvements first\n\n"
+        
+        "Your output should be a well-formatted markdown document that can be directly displayed to the user. "
+        "Use proper markdown syntax including headings, lists, code blocks, and emphasis where appropriate.\n\n"
+        
+        "IMPORTANT: Format your response as a JSON object with a 'report' field that contains your markdown as a string."
+    ),
+    agent=ReportCompilerAgent,
+    output_pydantic=PullReport,
+    expected_output=PullReport.schema_json()
+)
