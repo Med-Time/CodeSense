@@ -1,0 +1,6 @@
+
+python-dotenv
+
+
+PyGithub
+langchain_community
