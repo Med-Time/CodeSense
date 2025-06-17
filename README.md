@@ -59,7 +59,7 @@ Build CodeSense from the source and install dependencies:
 
 Run the project with:  
 ```bash
-python (entrypoint)
+python main.py
 ```
 
 ---
