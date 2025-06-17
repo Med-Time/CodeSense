@@ -42,7 +42,7 @@ Build CodeSense from the source and install dependencies:
 
 1. Clone the repository:  
    ```bash
-   git clone https://github.com/saryanrn/CodeSense
+   git clone https://github.com/Med-Time/CodeSense.git
    ```
 
 2. Navigate to the project directory:  
@@ -61,5 +61,3 @@ Run the project with:
 ```bash
 python main.py
 ```
-
----
