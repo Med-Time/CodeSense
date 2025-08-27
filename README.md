@@ -47,7 +47,7 @@ Build CodeSense from the source and install dependencies:
 
 2. Navigate to the project directory:  
    ```bash
-   cd codesense
+   cd codesense 
    ```
 
 3. Install the dependencies using pip:  
